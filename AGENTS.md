@@ -13,10 +13,10 @@ Budget Visualizer is a small Python app. It reads a personal budget Excel workbo
 | `app.py` | Entry point. Parses CLI args, builds the Dash layout (stats section plus plot sections), runs the server or the `dash2html` export. |
 | `data_loader.py` | `DataLoader` class: loads the workbook into one DataFrame and builds every Plotly figure. Chart helpers are private module functions (`_monthly_line_graph`, `_monthly_stacked_bar_graph`, `_monthly_net_bar_graph`, `_treemap`, `_yearly_pie_charts`). |
 | `spreadsheet_items.py` | `StrEnum`s for workbook columns and the allowed values of each dropdown column (`Vender`, `PaymentType`, `Category`, `Project`), plus `get_options()`. |
-| `Assets/ExampleBudget.xlsx` | AI-generated synthetic workbook, safe to commit and use for testing. |
-| `Assets/Budget.xlsx` | The owner's real budget. Git-ignored and **must never be committed**. |
-| `Assets/styles.css` | Dark-theme page styles (`scroll-container`, `section`, `title-bar`, `grid-container`, `stat-pill`, ...). |
-| `Dev/run.sh`, `Dev/run.bat` | Convenience launchers pointing at `Assets/Budget.xlsx`. |
+| `assets/ExampleBudget.xlsx` | AI-generated synthetic workbook. Default `--file`; safe to commit and use for testing. |
+| `assets/Budget.xlsx` | The owner's real budget. Any `Budget.xlsx` or `budget.xlsx`, in any folder, is git-ignored and **must never be committed**. |
+| `assets/styles.css` | Dark-theme page styles (`scroll-container`, `section`, `title-bar`, `grid-container`, `stat-pill`, ...). |
+| `Dev/run.sh`, `Dev/run.bat` | Convenience launchers pointing at `assets/Budget.xlsx`. |
 | `Docs/Images/` | Screenshots of the example plots, referenced from `README.md`. |
 
 ## Setup and running
@@ -25,13 +25,14 @@ Uses [uv](https://docs.astral.sh/uv/) with Python 3.13 (`.python-version`, `requ
 
 ```bash
 uv sync                                                  # install deps
-uv run app.py --file Assets/ExampleBudget.xlsx           # dev server at http://127.0.0.1:8050 (debug=True)
-uv run app.py --file Assets/ExampleBudget.xlsx --build   # dash2html export on port 8050
+uv run app.py                            # dev server at http://127.0.0.1:8050 (debug=True), example workbook
+uv run app.py --build                    # dash2html export on port 8050
+uv run app.py --file path/to/other.xlsx  # use a different workbook
 ```
 
 In `--build` mode, open `http://127.0.0.1:8050/` first, then `http://127.0.0.1:8050/download_zip` to download `static_site.zip`.
 
-Use `Assets/ExampleBudget.xlsx` for all testing. Don't read or print the contents of `Assets/Budget.xlsx`.
+`--file` defaults to `assets/ExampleBudget.xlsx`, resolved relative to `app.py`. Use it for all testing. Don't read or print the contents of `assets/Budget.xlsx`.
 
 ## Workbook format
 
@@ -58,12 +59,12 @@ Use `Assets/ExampleBudget.xlsx` for all testing. Don't read or print the content
 
 ## Known quirks
 
-- **The stylesheet doesn't load on Linux.** Dash serves the lowercase `assets/` folder by default, but the CSS is in `Assets/`. On a case-sensitive filesystem `styles.css` is never loaded unless `Dash(__name__, assets_folder="Assets")` is set or the folder is renamed.
-- `WORKBOOK_NAME` and `open_browser()` in `app.py` are unused.
+- Dash auto-serves the lowercase `assets/` folder. Keep that exact casing: on Linux a folder named `Assets/` isn't served and `styles.css` won't load.
+- The app opens the browser to `http://127.0.0.1:8050/` on start. The `WERKZEUG_RUN_MAIN` check in `app.py` stops Dash's debug reloader from opening it a second time.
 - `REDACT_VALUES` in `app.py` is a hard-coded toggle, not a CLI flag. It hides y-axis tick labels so screenshots can be shared.
 - "Vender" is the project's spelling throughout the code and the workbook. Keep it consistent.
 
 ## Git
 
 - `main` is the primary branch. Work on feature branches and merge through PRs.
-- Never commit `Assets/Budget.xlsx` or any other real financial data.
+- Never commit `assets/Budget.xlsx` or any other real financial data.
