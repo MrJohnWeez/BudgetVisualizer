@@ -11,19 +11,24 @@ Quick python project that:
 
 1. Install [UV](https://docs.astral.sh/uv/getting-started/installation/)
 2. Open terminal and run `uv sync`
+3. AGENTS.md file provided for agentic workflows
 
 # Command Structure
 
-`uv run app.py --file Path_To_Excel_file.xlsx --build`
+`uv run app.py [--file Path_To_Excel_file.xlsx] [--build]`
 
-- `--file` path of excel file to parse
+- `--file` path of excel file to parse (defaults to `assets/ExampleBudget.xlsx`)
 - `--build` create zip file of html page to download
 
 # Provided Synthetic Example
 
-`uv run app.py --file Assets/ExampleBudget.xlsx`
+Example File: `uv run app.py`
 
-or modify dev/run scripts (linux or windows)
+Custom file name: `uv run app.py --file 'assets/Budget.xlsx`
+
+Modify dev/run scripts (linux or windows)
+
+# Example Budget Provided
 
 Example Budget provided was AI generated to avoid personal information but still provide a plausible data log.
 
