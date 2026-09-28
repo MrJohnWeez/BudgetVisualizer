@@ -9,16 +9,44 @@ from pandas import DataFrame, concat
 from plotly.express import bar, line, pie, treemap
 from plotly.graph_objs import Figure
 
-from spreadsheet_items import (
-    Category,
-    Column,
-    PaymentType,
-    Project,
-    Vender,
-    get_options,
-)
+from spreadsheet_items import DATA_SHEET_NAME, OPTION_COLUMNS, Column
 
 MIN_PIE_CHART_PERCENT = 0.005
+
+UTILITY_CATEGORIES = ["Gas", "Eletric", "Water/Sewage", "Trash", "Internet"]
+FOOD_CATEGORIES = ["Food", "Takeout"]
+CAR_CATEGORIES = ["Car/Gas", "Trailer"]
+HOUSE_EXCLUDED_CATEGORIES = ["Tools"]
+STORE_VENDERS = [
+    "Home Depot",
+    "Amazon",
+    "Kroger",
+    "Lowes",
+    "Menards",
+    "Walmart",
+    "Sams",
+    "Costco",
+    "Game Stores",
+    "Kohl's",
+    "Harbor Freight Tools",
+]
+SUBSCRIPTION_VENDERS = [
+    "Spotify",
+    "Peacock TV",
+    "USMobile",
+    "Net10",
+    "Netflix",
+    "Diseny Plus",
+    "Anthropic",
+]
+CHART_ITEMS: list[tuple[Column, list[str]]] = [
+    (Column.CATEGORY, UTILITY_CATEGORIES),
+    (Column.CATEGORY, FOOD_CATEGORIES),
+    (Column.CATEGORY, CAR_CATEGORIES),
+    (Column.CATEGORY, HOUSE_EXCLUDED_CATEGORIES),
+    (Column.VENDER, STORE_VENDERS),
+    (Column.VENDER, SUBSCRIPTION_VENDERS),
+]
 
 
 class DataLoader:
@@ -29,10 +57,14 @@ class DataLoader:
         self.workbook_path = workbook_path
         self.redact_values = redact_values
         self.df = DataFrame()
+        self.options: dict[Column, list[str]] = {}
 
     def load_data(self) -> None:
-        """Load data into dataframe from workbook path."""
-        self.df = _load_dataframe(self.workbook_path)
+        """Load data and dropdown options from workbook path."""
+        xls = pd.ExcelFile(self.workbook_path)
+        self.df = _load_dataframe(xls)
+        self.options = _load_options(xls, self.df)
+        _warn_missing_chart_items(self.options)
 
     def get_plots(self) -> list[Figure]:
         """Generate list of plots based on loaded data."""
@@ -40,16 +72,16 @@ class DataLoader:
             _monthly_net_bar_graph(
                 self.df,
                 Column.PAYMENT_TYPE,
-                list(PaymentType),
+                self.options[Column.PAYMENT_TYPE],
                 "Monthly Net",
                 self.redact_values,
             ),
             _treemap(
                 self.df,
                 Column.PROJECT,
-                list(Project),
+                self.options[Column.PROJECT],
                 Column.CATEGORY,
-                [Category.TOOLS],
+                HOUSE_EXCLUDED_CATEGORIES,
                 "Total Spent On House",
                 "House Project Total",
                 self.redact_values,
@@ -57,68 +89,42 @@ class DataLoader:
             _monthly_line_graph(
                 self.df,
                 Column.CATEGORY,
-                [
-                    Category.GAS,
-                    Category.ELECTRIC,
-                    Category.WATER_SEWAGE,
-                    Category.TRASH,
-                    Category.INTERNET,
-                ],
+                UTILITY_CATEGORIES,
                 "Utility Cost",
                 self.redact_values,
             ),
             _monthly_line_graph(
                 self.df,
                 Column.CATEGORY,
-                [Category.FOOD, Category.TAKEOUT],
+                FOOD_CATEGORIES,
                 "Food Costs",
                 self.redact_values,
             ),
             _monthly_line_graph(
                 self.df,
                 Column.CATEGORY,
-                [Category.CAR_GAS, Category.TRAILER],
+                CAR_CATEGORIES,
                 "Car & Trailer Costs",
                 self.redact_values,
             ),
             _monthly_stacked_bar_graph(
                 self.df,
                 Column.VENDER,
-                [
-                    Vender.HOME_DEPOT,
-                    Vender.AMAZON,
-                    Vender.KROGER,
-                    Vender.LOWES,
-                    Vender.MENARDS,
-                    Vender.WALMART,
-                    Vender.SAMS,
-                    Vender.COSTCO,
-                    Vender.GAME_STORES,
-                    Vender.KOHLS,
-                    Vender.HARBOR_FREIGHT_TOOLS,
-                ],
+                STORE_VENDERS,
                 "Stores",
                 self.redact_values,
             ),
             _monthly_line_graph(
                 self.df,
                 Column.VENDER,
-                [
-                    Vender.SPOTIFY,
-                    Vender.PEACOCK_TV,
-                    Vender.US_MOBILE,
-                    Vender.NET10,
-                    Vender.NETFLIX,
-                    Vender.DISNEY_PLUS,
-                    Vender.ANTHROPIC,
-                ],
+                SUBSCRIPTION_VENDERS,
                 "Subscriptions",
                 self.redact_values,
             ),
             _monthly_stacked_bar_graph(
                 self.df,
                 Column.PROJECT,
-                list(Project),
+                self.options[Column.PROJECT],
                 "House Projects",
                 self.redact_values,
             ),
@@ -126,19 +132,39 @@ class DataLoader:
 
     def get_vender_pie_charts(self) -> list[Figure]:
         """Plot displaying vender pie charts."""
-        return _yearly_pie_charts(self.df, Column.VENDER, self.redact_values)
+        return _yearly_pie_charts(
+            self.df,
+            Column.VENDER,
+            self.options[Column.VENDER],
+            self.redact_values,
+        )
 
     def get_payment_type_pie_charts(self) -> list[Figure]:
         """Plot displaying payment pie charts."""
-        return _yearly_pie_charts(self.df, Column.PAYMENT_TYPE, self.redact_values)
+        return _yearly_pie_charts(
+            self.df,
+            Column.PAYMENT_TYPE,
+            self.options[Column.PAYMENT_TYPE],
+            self.redact_values,
+        )
 
     def get_project_pie_charts(self) -> list[Figure]:
         """Plot displaying project pie charts."""
-        return _yearly_pie_charts(self.df, Column.PROJECT, self.redact_values)
+        return _yearly_pie_charts(
+            self.df,
+            Column.PROJECT,
+            self.options[Column.PROJECT],
+            self.redact_values,
+        )
 
     def get_category_pie_charts(self) -> list[Figure]:
         """Plot displaying category pie charts."""
-        return _yearly_pie_charts(self.df, Column.CATEGORY, self.redact_values)
+        return _yearly_pie_charts(
+            self.df,
+            Column.CATEGORY,
+            self.options[Column.CATEGORY],
+            self.redact_values,
+        )
 
     def get_stats(self) -> list[tuple[str, str]]:
         """Generate titles and stats values within a list."""
@@ -156,10 +182,9 @@ def _sum_tools(df: DataFrame) -> float:
 def _prepare_filtered_df(
     df: DataFrame,
     column: Column,
-    sort_items: list[Vender | PaymentType | Category | Project],
+    sort_items: list[str],
 ) -> DataFrame:
-    values = [item.value for item in sort_items]
-    filtered = df.loc[df[column].isin(values)].copy()
+    filtered = df.loc[df[column].isin(sort_items)].copy()
     filtered["Date"] = pd.to_datetime(filtered[Column.SHEET_NAME], format="%y%m%d", errors="coerce")
     filtered["MonthDate"] = filtered["Date"].dt.to_period("M").dt.to_timestamp()
     return filtered
@@ -173,7 +198,7 @@ def _apply_redaction(fig: Figure, redact: bool) -> None:
 def _monthly_net_bar_graph(
     df: DataFrame,
     column: Column,
-    sort_items: list[Vender | PaymentType | Category | Project],
+    sort_items: list[str],
     title: str,
     redact_values: bool,
 ) -> Figure:
@@ -202,19 +227,17 @@ def _monthly_net_bar_graph(
     return fig
 
 
-def _treemap(
+def _treemap(  # noqa: PLR0917
     df: DataFrame,
     column: Column,
-    sort_items: list[Vender | PaymentType | Category | Project],
+    sort_items: list[str],
     exclude_column: Column,
-    exclude_items: list[Vender | PaymentType | Category | Project],
+    exclude_items: list[str],
     title: str,
     root_title: str,
     redact_values: bool,
 ) -> Figure:
-    include_values = [i.value for i in sort_items]
-    exclude_values = [i.value for i in exclude_items]
-    filtered = df.loc[df[column].isin(include_values) & ~df[exclude_column].isin(exclude_values)]
+    filtered = df.loc[df[column].isin(sort_items) & ~df[exclude_column].isin(exclude_items)]
     grouped = (
         filtered.groupby(column, as_index=False)[Column.AMOUNT]
         .sum()
@@ -241,7 +264,7 @@ def _treemap(
 def _monthly_stacked_bar_graph(
     df: DataFrame,
     column: Column,
-    sort_items: list[Vender | PaymentType | Category | Project],
+    sort_items: list[str],
     title: str,
     redact_values: bool,
 ) -> Figure:
@@ -276,7 +299,7 @@ def _monthly_stacked_bar_graph(
 def _monthly_line_graph(
     df: DataFrame,
     column: Column,
-    sort_items: list[Vender | PaymentType | Category | Project],
+    sort_items: list[str],
     title: str,
     redact_values: bool,
 ) -> Figure:
@@ -307,12 +330,12 @@ def _monthly_line_graph(
 def _yearly_pie_charts(
     df: DataFrame,
     column: Column,
+    options: list[str],
     redact_values: bool,
 ) -> list[Figure]:
     df = df.copy()
     df["Date"] = pd.to_datetime(df[Column.SHEET_NAME], format="%y%m%d", errors="coerce")
     df["Year"] = df["Date"].dt.year
-    options = get_options(column)
     figures: list[Figure] = []
 
     for year, year_df in df.groupby("Year"):
@@ -358,8 +381,7 @@ def _yearly_pie_charts(
     return figures
 
 
-def _load_dataframe(workbook_path: Path) -> DataFrame:
-    xls = pd.ExcelFile(workbook_path)
+def _load_dataframe(xls: pd.ExcelFile) -> DataFrame:
     numeric_sheet_names = [s for s in xls.sheet_names if str(s).isdigit()]
     if not numeric_sheet_names:
         print("No numeric sheets found.")  # noqa: T201
@@ -379,3 +401,33 @@ def _load_dataframe(workbook_path: Path) -> DataFrame:
         dfs.append(df)
 
     return concat(dfs, ignore_index=True)
+
+
+def _load_options(xls: pd.ExcelFile, df: DataFrame) -> dict[Column, list[str]]:
+    data_df = DataFrame()
+    if DATA_SHEET_NAME in xls.sheet_names:
+        data_df = cast("DataFrame", xls.parse(DATA_SHEET_NAME))
+        data_df.columns = [str(c).strip() for c in data_df.columns]
+    else:
+        print(f"No '{DATA_SHEET_NAME}' sheet found, using values from monthly sheets.")  # noqa: T201
+
+    options: dict[Column, list[str]] = {}
+    for column in OPTION_COLUMNS:
+        if column in data_df.columns:
+            values = data_df[column].dropna().astype(str).str.strip()
+            options[column] = list(dict.fromkeys(v for v in values if v))
+        elif column in df.columns:
+            if not data_df.empty:
+                print(f"No '{column}' column in '{DATA_SHEET_NAME}' sheet, using sheet values.")  # noqa: T201
+            values = df[column].dropna().astype(str).str.strip()
+            options[column] = sorted({v for v in values if v})
+        else:
+            options[column] = []
+    return options
+
+
+def _warn_missing_chart_items(options: dict[Column, list[str]]) -> None:
+    for column, items in CHART_ITEMS:
+        for item in items:
+            if item not in options.get(column, []):
+                print(f"Warning: chart item '{item}' not found in '{column}' options.")  # noqa: T201
