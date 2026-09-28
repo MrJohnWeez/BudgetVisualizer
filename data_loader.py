@@ -110,6 +110,7 @@ class DataLoader:
                     Vender.NET10,
                     Vender.NETFLIX,
                     Vender.DISNEY_PLUS,
+                    Vender.ANTHROPIC,
                 ],
                 "Subscriptions",
                 self.redact_values,

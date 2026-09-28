@@ -7,7 +7,6 @@ from pathlib import Path
 from dash import Dash, dcc, html
 from dash2html import dash2html
 from plotly.graph_objs import Figure
-import sys, traceback
 
 from data_loader import DataLoader
 
