@@ -62,6 +62,8 @@ class Vender(StrEnum):
     DISNEY_PLUS = "Diseny Plus"
     CABINETS_COM = "Cabinets com"
     CLOUDFLARE = "Cloudflare"
+    PRUSA = "Prusa"
+    ANTHROPIC = "Anthropic"
 
 
 class PaymentType(StrEnum):
@@ -133,6 +135,7 @@ class Project(StrEnum):
     GENERAL_PLUMBING = "General Plumbing"
     BASEMENT_REMODEL = "Basement Remodel"
     FLOORING = "Flooring"
+    GARDEN = "Garden"
 
 
 MONTHS = [
