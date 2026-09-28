@@ -30,6 +30,9 @@ ignore = [
     "FBT002", # Boolean default positional argument in function definition
     "PLR0913", # Too many arguments in function definition
     "CPY001", # No Copyright at top of file
+    "D203", # Blank line before class docstring (conflicts with D211)
+    "D213", # Multi-line summary on second line (conflicts with D212)
+    "COM812", # Missing trailing comma (conflicts with the formatter)
 ]
 
 [tool.ruff.format]

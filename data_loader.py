@@ -175,7 +175,7 @@ class DataLoader:
 
 def _sum_tools(df: DataFrame) -> float:
     tools_rows = df[df[Column.CATEGORY].str.contains("tools", case=False, na=False)]
-    total = tools_rows[Column.AMOUNT].sum()
+    total = cast("float", tools_rows[Column.AMOUNT].sum())
     return round(abs(total), 2)
 
 
@@ -203,11 +203,10 @@ def _monthly_net_bar_graph(
     redact_values: bool,
 ) -> Figure:
     filtered = _prepare_filtered_df(df, column, sort_items)
-    grouped = (
-        filtered.groupby("MonthDate", as_index=False)
-        .agg(Amount=(Column.AMOUNT, "sum"))
-        .sort_values("MonthDate")
-    )
+    grouped = cast(
+        "DataFrame",
+        filtered.groupby("MonthDate", as_index=False).agg(Amount=(Column.AMOUNT, "sum")),
+    ).sort_values("MonthDate")
     grouped["Amount"] = grouped[Column.AMOUNT].round(2)
     grouped["Color"] = np.where(grouped["Amount"] >= 0, "Positive", "Negative")
     fig = bar(
@@ -271,11 +270,10 @@ def _monthly_stacked_bar_graph(
     filtered = _prepare_filtered_df(df, column, sort_items)
     filtered["Item"] = filtered[column]
 
-    grouped = (
-        filtered.groupby(["MonthDate", "Item"], as_index=False)
-        .agg(Amount=(Column.AMOUNT, "sum"))
-        .sort_values("MonthDate")
-    )
+    grouped = cast(
+        "DataFrame",
+        filtered.groupby(["MonthDate", "Item"], as_index=False).agg(Amount=(Column.AMOUNT, "sum")),
+    ).sort_values("MonthDate")
     grouped["Amount"] = grouped[Column.AMOUNT].abs().round(2)
 
     fig = bar(
@@ -305,11 +303,10 @@ def _monthly_line_graph(
 ) -> Figure:
     filtered = _prepare_filtered_df(df, column, sort_items)
     filtered["Item"] = filtered[column]
-    grouped = (
-        filtered.groupby(["MonthDate", "Item"], as_index=False)
-        .agg(Amount=(Column.AMOUNT, "sum"))
-        .sort_values("MonthDate")
-    )
+    grouped = cast(
+        "DataFrame",
+        filtered.groupby(["MonthDate", "Item"], as_index=False).agg(Amount=(Column.AMOUNT, "sum")),
+    ).sort_values("MonthDate")
     grouped["Amount"] = grouped[Column.AMOUNT].abs().round(2)
     fig = line(
         grouped,
@@ -338,12 +335,10 @@ def _yearly_pie_charts(
     df["Year"] = df["Date"].dt.year
     figures: list[Figure] = []
 
-    for year, year_df in df.groupby("Year"):
-        if pd.isna(year):
-            continue
-        grouped = year_df.groupby(column, as_index=False)[Column.AMOUNT].sum()
+    for year, year_df in df.dropna(subset=["Year"]).groupby("Year"):
+        grouped = cast("DataFrame", year_df.groupby(column, as_index=False)[Column.AMOUNT].sum())
         if options:
-            grouped = grouped[grouped[column].isin(options)]
+            grouped = grouped.loc[grouped[column].isin(options)]
         if grouped.empty:
             continue
 
@@ -393,7 +388,7 @@ def _load_dataframe(xls: pd.ExcelFile) -> DataFrame:
 
     dfs: list[DataFrame] = []
     for name in numeric_sheet_names:
-        df = xls.parse(name)
+        df = cast("DataFrame", xls.parse(name))
         # Normalize column names (prevents subtle bugs later)
         df.columns = [str(c).strip() for c in df.columns]
         # Add sheet name column
