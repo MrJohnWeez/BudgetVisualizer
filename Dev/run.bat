@@ -1,3 +1,3 @@
 @echo off
-uv run python ..\app.py --file ..\Assets\Budget.xlsx
+uv run python ..\app.py --file ..\assets\Budget.xlsx
 @pause
