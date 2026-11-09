@@ -29,6 +29,7 @@ STORE_VENDERS = [
     "Game Stores",
     "Kohl's",
     "Harbor Freight Tools",
+    "Microcenter",
 ]
 SUBSCRIPTION_VENDERS = [
     "Spotify",
