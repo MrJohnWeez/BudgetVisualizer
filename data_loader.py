@@ -627,12 +627,19 @@ def _project_timeline_graph(df: DataFrame, title: str) -> Figure:
                 ),
             )
         )
+    # plotly.js 3.x autorange ignores bar x0 on date axes, so set the range
+    # explicitly from the data (with a little padding).
+    pad = pd.Timedelta(days=5)
     fig.update_layout(
         title=title,
         template="plotly_dark",
         showlegend=False,
         xaxis_title="Date",
         yaxis_title="",
+        xaxis_range=[
+            cast("pd.Timestamp", grouped["Start"].min()) - pad,
+            cast("pd.Timestamp", grouped["End"].max()) + pd.offsets.MonthEnd(0) + pad,
+        ],
     )
     return _finish_figure(fig, redact_values=False)
 

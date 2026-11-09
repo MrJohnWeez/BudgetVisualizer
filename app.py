@@ -23,7 +23,7 @@ BROWSER_OPEN_DELAY_SECONDS = 1.0
 # inline height: 100% on the graph container in that mode, so the chart
 # grids need definite row heights (.grid-container-charts in styles.css);
 # without them plotly collapses the charts to a zero-height plot.
-GRAPH_CONFIG: Any = {"displaylogo": False, "responsive": True}
+GRAPH_CONFIG: Any = {"displaylogo": False, "displayModeBar": False, "responsive": True}
 
 YEARLY_SECTION_GETTERS = {
     "Yearly Vender Summary": DataLoader.get_vender_pie_charts,

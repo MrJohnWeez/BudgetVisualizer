@@ -37,22 +37,40 @@ Example Budget provided was AI generated to avoid personal information but still
 
 ![Example category plot](Docs/Images/category.png)
 
+![Example monthly category spending plot](Docs/Images/category-monthly.png)
+
+![Example cumulative net plot](Docs/Images/cumulative-net.png)
+
 ![Example food costs plot](Docs/Images/food-costs.png)
 
 ![Example house projects plot](Docs/Images/house-projects.png)
 
-![Example image plot](Docs/Images/image.png)
+![Example income vs expenses plot](Docs/Images/income-expenses.png)
+
+![Example monthly net plot](Docs/Images/monthly-net.png)
 
 ![Example payment-type plot](Docs/Images/payment-type.png)
 
 ![Example project plot](Docs/Images/project.png)
 
+![Example project timeline plot](Docs/Images/project-timeline.png)
+
+![Example average spend by month plot](Docs/Images/seasonality.png)
+
+![Example stats](Docs/Images/stats.png)
+
 ![Example stores plot](Docs/Images/stores.png)
 
 ![Example subscriptions plot](Docs/Images/subscriptions.png)
 
+![Example top venders plot](Docs/Images/top-venders.png)
+
 ![Example total spent on house plot](Docs/Images/total-spent-on-house.png)
+
+![Example transaction history plot](Docs/Images/transactions.png)
 
 ![Example utility cost plot](Docs/Images/utility-cost.png)
 
 ![Example vender plot](Docs/Images/vender.png)
+
+![Example year over year plot](Docs/Images/year-over-year.png)
