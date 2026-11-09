@@ -10,12 +10,13 @@ Budget Visualizer is a small Python app. It reads a personal budget Excel workbo
 
 | Path | Purpose |
 | --- | --- |
-| `app.py` | Entry point. Parses CLI args, builds the Dash layout (stats section plus plot sections), runs the server or the `dash2html` export. |
+| `app.py` | Entry point. Parses CLI args, builds the Dash layout (sticky nav header plus stats and plot sections), runs the server or the `dash2html` export. |
 | `data_loader.py` | `DataLoader` class: loads the workbook into one DataFrame, reads the dropdown options from the `Data` sheet into `self.options`, and builds every Plotly figure. Per-chart item lists (`UTILITY_CATEGORIES`, `STORE_VENDERS`, ...) are module-level string constants. Chart helpers are private module functions (`_monthly_line_graph`, `_monthly_stacked_bar_graph`, `_monthly_net_bar_graph`, `_treemap`, `_yearly_pie_charts`). |
 | `spreadsheet_items.py` | `Column` `StrEnum` of workbook column names, `OPTION_COLUMNS` (the dropdown columns), and `DATA_SHEET_NAME`. |
 | `assets/ExampleBudget.xlsx` | AI-generated synthetic workbook. Default `--file`; safe to commit and use for testing. |
 | `assets/Budget.xlsx` | The owner's real budget. Any `Budget.xlsx` or `budget.xlsx`, in any folder, is git-ignored and **must never be committed**. |
-| `assets/styles.css` | Dark-theme page styles (`scroll-container`, `section`, `title-bar`, `grid-container`, `stat-pill`, ...). |
+| `assets/styles.css` | Dark-theme page styles (`app-header`, `scroll-container`, `section`, `title-bar`, `grid-container`, `stat-pill`, ...). |
+| `assets/favicon.ico` | Page favicon. A PNG saved with an `.ico` extension; Dash serves it automatically. |
 | `Dev/run.sh`, `Dev/run.bat` | Convenience launchers pointing at `assets/Budget.xlsx`. |
 | `Docs/Images/` | Screenshots of the example plots, referenced from `README.md`. |
 
@@ -47,7 +48,7 @@ In `--build` mode, open `http://127.0.0.1:8050/` first, then `http://127.0.0.1:8
 - Every module and public function has a one-line docstring. Private helpers are prefixed with `_` and have no docstring.
 - Full type hints everywhere. Filter lists are typed `list[str]`.
 - Reference columns through the `Column` enum (`df[Column.AMOUNT]`), not string literals. The exceptions are derived columns such as `"Date"`, `"MonthDate"`, `"Item"`, and `"Year"`.
-- Figures use `template="plotly_dark"`, set a custom `hovertemplate`, and call `_apply_redaction(fig, redact_values)` before being returned.
+- Figures use `template="plotly_dark"`, set a custom `hovertemplate`, and return `_finish_figure(fig, redact_values)` (shared styling: theme background colors, height, margins, and the optional y-axis redaction).
 - `print` is allowed only with `# noqa: T201`.
 - There is no test suite. To verify a change, run the app against the example workbook and check that it starts without errors.
 
@@ -62,7 +63,7 @@ In `--build` mode, open `http://127.0.0.1:8050/` first, then `http://127.0.0.1:8
 
 - Dash auto-serves the lowercase `assets/` folder. Keep that exact casing: on Linux a folder named `Assets/` isn't served and `styles.css` won't load.
 - The app opens the browser to `http://127.0.0.1:8050/` on start. The `WERKZEUG_RUN_MAIN` check in `app.py` stops Dash's debug reloader from opening it a second time.
-- `REDACT_VALUES` in `app.py` is a hard-coded toggle, not a CLI flag. It hides y-axis tick labels so screenshots can be shared.
+- The `--redact` CLI flag hides y-axis tick labels so screenshots can be shared.
 - "Vender" is the project's spelling throughout the code and the workbook. Keep it consistent.
 
 ## Git

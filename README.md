@@ -15,10 +15,11 @@ Quick python project that:
 
 # Command Structure
 
-`uv run app.py [--file Path_To_Excel_file.xlsx] [--build]`
+`uv run app.py [--file Path_To_Excel_file.xlsx] [--build] [--redact]`
 
 - `--file` path of excel file to parse (defaults to `assets/ExampleBudget.xlsx`)
 - `--build` create zip file of html page to download
+- `--redact` hide y-axis value labels so the page can be shared as screenshots
 
 # Provided Synthetic Example
 
