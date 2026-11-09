@@ -3,8 +3,10 @@
 import argparse
 import os
 import webbrowser
+from collections.abc import Sequence
 from pathlib import Path
 from threading import Timer
+from typing import Any
 
 from dash import Dash, dcc, html
 from dash2html import dash2html
@@ -13,9 +15,18 @@ from plotly.graph_objs import Figure
 from data_loader import DataLoader
 
 DEFAULT_WORKBOOK = Path(__file__).parent / "assets" / "ExampleBudget.xlsx"
-REDACT_VALUES = False
 PORT = 8050
 BROWSER_OPEN_DELAY_SECONDS = 1.0
+# Dash's auto-generated Graph stub types config as a "Config" symbol that
+# does not exist in plotly, so keep this Any-typed to satisfy pyright.
+GRAPH_CONFIG: Any = {"displaylogo": False, "responsive": True}
+
+YEARLY_SECTION_GETTERS = {
+    "Yearly Vender Summary": DataLoader.get_vender_pie_charts,
+    "Yearly Category Summary": DataLoader.get_category_pie_charts,
+    "Yearly Payment Summary": DataLoader.get_payment_type_pie_charts,
+    "Yearly Project Summary": DataLoader.get_project_pie_charts,
+}
 
 
 def run_app() -> None:
@@ -32,36 +43,61 @@ def run_app() -> None:
         action="store_true",
         help="Create build of html page",
     )
-    args = parser.parse_args()
-    workbook_path: Path = args.file
-    create_build = args.build
-
-    data_loader = DataLoader(workbook_path, REDACT_VALUES)
-    data_loader.load_data()
-    app = Dash(__name__)
-    app.layout = html.Div(
-        [
-            _create_stats_section("Stats", data_loader.get_stats()),
-            _create_plot_section("Plots", data_loader.get_plots()),
-            _create_plot_section("Yearly Vender Summary", data_loader.get_vender_pie_charts()),
-            _create_plot_section("Yearly Category Summary", data_loader.get_category_pie_charts()),
-            _create_plot_section(
-                "Yearly Payment Summary",
-                data_loader.get_payment_type_pie_charts(),
-            ),
-            _create_plot_section("Yearly Project Summary", data_loader.get_project_pie_charts()),
-        ],
-        className="scroll-container",
+    parser.add_argument(
+        "--redact",
+        action="store_true",
+        help="Hide y-axis value labels so the page can be shared as screenshots",
     )
+    args = parser.parse_args()
+
+    data_loader = DataLoader(args.file, args.redact)
+    data_loader.load_data()
+    app = Dash(__name__, title="Budget Visualizer")
+    app.layout = _build_layout(data_loader)
     # Debug reloader re-runs this script in a child process; only open from the parent
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         Timer(BROWSER_OPEN_DELAY_SECONDS, open_browser).start()
 
-    if create_build:
+    if args.build:
+        # dash2html still calls the Dash 2-era run_server API, removed in Dash 4
         app.run_server = app.run  # pyright: ignore[reportAttributeAccessIssue]
         dash2html(app, port=PORT)
     else:
         app.run(debug=True, port=PORT)
+
+
+def _build_layout(data_loader: DataLoader) -> html.Div:
+    sections: list[tuple[str, html.Div]] = [
+        ("Stats", _create_stats_section("Stats", data_loader.get_stats())),
+        ("Plots", _create_plot_section("Plots", data_loader.get_plots())),
+    ]
+    sections.extend(
+        (title, _create_plot_section(title, getter(data_loader)))
+        for title, getter in YEARLY_SECTION_GETTERS.items()
+    )
+    return html.Div(
+        [
+            _create_header([title for title, _ in sections]),
+            html.Div([section for _, section in sections], className="scroll-container"),
+        ],
+        className="app",
+    )
+
+
+def _create_header(titles: Sequence[str]) -> html.Div:
+    return html.Div(
+        [
+            html.Span("Budget Visualizer", className="app-title"),
+            html.Div(
+                [
+                    html.A(title, href=f"#{_anchor_id(title)}", className="nav-link")
+                    for title in titles
+                ],
+                className="nav-links",
+            ),
+        ],
+        className="app-header",
+    )
 
 
 def _create_plot_section(title: str, plots: list[Figure]) -> html.Div:
@@ -69,11 +105,15 @@ def _create_plot_section(title: str, plots: list[Figure]) -> html.Div:
         [
             html.Div(title, className="title-bar"),
             html.Div(
-                [dcc.Graph(figure=fig, className="graph") for fig in plots],
+                [
+                    dcc.Graph(figure=figure, className="graph", config=GRAPH_CONFIG)
+                    for figure in plots
+                ],
                 className="grid-container",
             ),
         ],
         className="section",
+        id=_anchor_id(title),
     )
 
 
@@ -97,7 +137,12 @@ def _create_stats_section(title: str, values: list[tuple[str, str]]) -> html.Div
             ),
         ],
         className="section",
+        id=_anchor_id(title),
     )
+
+
+def _anchor_id(title: str) -> str:
+    return title.casefold().replace(" ", "-")
 
 
 def open_browser() -> None:

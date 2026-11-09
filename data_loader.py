@@ -12,6 +12,11 @@ from plotly.graph_objs import Figure
 from spreadsheet_items import DATA_SHEET_NAME, OPTION_COLUMNS, Column
 
 MIN_PIE_CHART_PERCENT = 0.005
+CHART_HEIGHT = 700
+PAPER_BG_COLOR = "#141922"
+PLOT_BG_COLOR = "#1c232e"
+DEFAULT_MARGIN = {"t": 60, "b": 40, "l": 60, "r": 20}
+PIE_MARGIN = {"t": 80, "b": 20, "l": 50, "r": 50}
 
 UTILITY_CATEGORIES = ["Gas", "Eletric", "Water/Sewage", "Trash", "Internet"]
 FOOD_CATEGORIES = ["Food", "Takeout"]
@@ -191,9 +196,20 @@ def _prepare_filtered_df(
     return filtered
 
 
-def _apply_redaction(fig: Figure, redact: bool) -> None:
-    if redact:
+def _finish_figure(
+    fig: Figure,
+    redact_values: bool,
+    margin: dict[str, int] = DEFAULT_MARGIN,
+) -> Figure:
+    fig.update_layout(
+        height=CHART_HEIGHT,
+        paper_bgcolor=PAPER_BG_COLOR,
+        plot_bgcolor=PLOT_BG_COLOR,
+        margin=margin,
+    )
+    if redact_values:
         fig.update_yaxes(showticklabels=False)
+    return fig
 
 
 def _monthly_net_bar_graph(
@@ -218,13 +234,12 @@ def _monthly_net_bar_graph(
         title=title,
         template="plotly_dark",
         labels={"MonthDate": "Date", "Amount": "Net Dollars"},
-        color_discrete_map={"Positive": "green", "Negative": "red"},
+        color_discrete_map={"Positive": "#3fb950", "Negative": "#f85149"},
     )
     fig.update_traces(hovertemplate="Date: %{x|%b %Y}<br>Net: %{y}<extra></extra>")
     fig.update_layout(legend_title_text="")
 
-    _apply_redaction(fig, redact_values)
-    return fig
+    return _finish_figure(fig, redact_values)
 
 
 def _treemap(  # noqa: PLR0917
@@ -257,8 +272,7 @@ def _treemap(  # noqa: PLR0917
     )
     fig.update_traces(hovertemplate="Category: %{label}<br>Total: %{value}<extra></extra>")
 
-    _apply_redaction(fig, redact_values)
-    return fig
+    return _finish_figure(fig, redact_values)
 
 
 def _monthly_stacked_bar_graph(
@@ -291,8 +305,7 @@ def _monthly_stacked_bar_graph(
     )
     fig.update_layout(barmode="stack")
 
-    _apply_redaction(fig, redact_values)
-    return fig
+    return _finish_figure(fig, redact_values)
 
 
 def _monthly_line_graph(
@@ -321,8 +334,7 @@ def _monthly_line_graph(
     fig.update_traces(
         hovertemplate=("Item: %{fullData.name}<br>Date: %{x|%b %Y}<br>Amount: %{y}<extra></extra>"),
     )
-    _apply_redaction(fig, redact_values)
-    return fig
+    return _finish_figure(fig, redact_values)
 
 
 def _yearly_pie_charts(
@@ -365,14 +377,8 @@ def _yearly_pie_charts(
                 "%{label}<br>Amount: $%{value:.2f}<br>Percent: %{percent}<extra></extra>"
             ),
         )
-        fig.update_layout(
-            margin={"t": 80, "b": 20, "l": 50, "r": 50},
-            height=700,
-            uniformtext_minsize=10,
-            uniformtext_mode="hide",
-        )
-        _apply_redaction(fig, redact_values)
-        figures.append(fig)
+        fig.update_layout(uniformtext_minsize=10, uniformtext_mode="hide")
+        figures.append(_finish_figure(fig, redact_values, margin=PIE_MARGIN))
 
     return figures
 
