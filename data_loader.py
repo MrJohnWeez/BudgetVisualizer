@@ -5,14 +5,16 @@ from typing import cast
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 from pandas import DataFrame, concat
-from plotly.express import bar, line, pie, treemap
+from plotly.express import bar, line, pie, scatter, treemap
 from plotly.graph_objs import Figure
 
 from spreadsheet_items import DATA_SHEET_NAME, OPTION_COLUMNS, Column
 
 MIN_PIE_CHART_PERCENT = 0.005
 CHART_HEIGHT = 700
+TOP_VENDER_LIMIT = 15
 PAPER_BG_COLOR = "#141922"
 PLOT_BG_COLOR = "#1c232e"
 DEFAULT_MARGIN = {"t": 60, "b": 40, "l": 60, "r": 20}
@@ -134,6 +136,25 @@ class DataLoader:
                 "House Projects",
                 self.redact_values,
             ),
+            _monthly_stacked_bar_graph(
+                self.df,
+                Column.CATEGORY,
+                self.options[Column.CATEGORY],
+                "Monthly Spending By Category",
+                self.redact_values,
+            ),
+            _monthly_income_expenses_graph(self.df, "Income vs Expenses", self.redact_values),
+            _cumulative_net_graph(self.df, "Cumulative Net Position", self.redact_values),
+            _top_vender_bar_graph(
+                self.df,
+                self.options[Column.VENDER],
+                "Top Venders",
+                self.redact_values,
+            ),
+            _seasonality_graph(self.df, "Average Spend By Month", self.redact_values),
+            _year_over_year_graph(self.df, "Year Over Year Comparison", self.redact_values),
+            _project_timeline_graph(self.df, "Project Timeline"),
+            _transaction_scatter_graph(self.df, "Transaction History", self.redact_values),
         ]
 
     def get_vender_pie_charts(self) -> list[Figure]:
@@ -174,15 +195,71 @@ class DataLoader:
 
     def get_stats(self) -> list[tuple[str, str]]:
         """Generate titles and stats values within a list."""
-        return [
+        stats: list[tuple[str, str]] = [
             ("Amount Spent on tools", f"${_sum_tools(self.df)}"),
+            ("Average Monthly Spend", f"${_avg_monthly_spend(self.df)}"),
+            ("Largest Single Purchase This Year", _largest_purchase(self.df)),
+            ("Months With Negative Net", str(_months_negative_net(self.df))),
         ]
+        savings = _savings_rate(self.df)
+        if savings is not None:
+            stats.append((f"Savings Rate ({savings[0]})", f"{savings[1] * 100:.1f}%"))
+        return stats
 
 
 def _sum_tools(df: DataFrame) -> float:
     tools_rows = df[df[Column.CATEGORY].str.contains("tools", case=False, na=False)]
     total = cast("float", tools_rows[Column.AMOUNT].sum())
     return round(abs(total), 2)
+
+
+def _avg_monthly_spend(df: DataFrame) -> float:
+    work = _add_date_columns(df)
+    monthly = cast(
+        "DataFrame",
+        work.loc[work[Column.AMOUNT] < 0].groupby("MonthDate", as_index=False)[Column.AMOUNT].sum(),
+    )
+    if monthly.empty:
+        return 0.0
+    return round(cast("float", monthly[Column.AMOUNT].abs().sum()) / len(monthly), 2)
+
+
+def _largest_purchase(df: DataFrame) -> str:
+    work = _add_date_columns(df)
+    purchases = work.loc[work[Column.AMOUNT] < 0]
+    years = sorted({int(y) for y in purchases["Year"].dropna().unique()})
+    if not years:
+        return "None"
+    purchases = purchases.loc[purchases["Year"] == years[-1]]
+    if purchases.empty:
+        return "None"
+    row = purchases.loc[purchases[Column.AMOUNT].idxmin()]
+    date_label = cast("pd.Timestamp", row["Date"]).strftime("%b %Y")
+    vender = row[Column.VENDER] if pd.notna(row[Column.VENDER]) else "Unknown"
+    return f"${abs(cast('float', row[Column.AMOUNT]))} - {vender} ({date_label})"
+
+
+def _months_negative_net(df: DataFrame) -> int:
+    work = _add_date_columns(df)
+    monthly = cast(
+        "DataFrame",
+        work.groupby("MonthDate", as_index=False)[Column.AMOUNT].sum(),
+    )
+    return int((monthly[Column.AMOUNT] < 0).sum())
+
+
+def _savings_rate(df: DataFrame) -> tuple[int, float] | None:
+    work = _add_date_columns(df)
+    years = sorted({int(y) for y in work["Year"].dropna().unique()})
+    if not years:
+        return None
+    year = years[-1]
+    year_df = work.loc[work["Year"] == year]
+    income = float(year_df.loc[year_df[Column.AMOUNT] > 0, Column.AMOUNT].sum())
+    if income <= 0:
+        return None
+    net = float(year_df[Column.AMOUNT].sum())
+    return year, net / income
 
 
 def _prepare_filtered_df(
@@ -194,6 +271,14 @@ def _prepare_filtered_df(
     filtered["Date"] = pd.to_datetime(filtered[Column.SHEET_NAME], format="%y%m%d", errors="coerce")
     filtered["MonthDate"] = filtered["Date"].dt.to_period("M").dt.to_timestamp()
     return filtered
+
+
+def _add_date_columns(df: DataFrame) -> DataFrame:
+    work = df.copy()
+    work["Date"] = pd.to_datetime(work[Column.SHEET_NAME], format="%y%m%d", errors="coerce")
+    work["MonthDate"] = work["Date"].dt.to_period("M").dt.to_timestamp()
+    work["Year"] = work["Date"].dt.year
+    return work
 
 
 def _finish_figure(
@@ -333,6 +418,251 @@ def _monthly_line_graph(
     )
     fig.update_traces(
         hovertemplate=("Item: %{fullData.name}<br>Date: %{x|%b %Y}<br>Amount: %{y}<extra></extra>"),
+    )
+    return _finish_figure(fig, redact_values)
+
+
+def _monthly_income_expenses_graph(
+    df: DataFrame,
+    title: str,
+    redact_values: bool,
+) -> Figure:
+    work = _add_date_columns(df)
+    income = cast(
+        "DataFrame",
+        work.loc[work[Column.AMOUNT] > 0]
+        .groupby("MonthDate", as_index=False)[Column.AMOUNT]
+        .sum()
+        .assign(Amount=lambda d: d[Column.AMOUNT].round(2)),
+    )
+    income["Item"] = "Income"
+    expenses = cast(
+        "DataFrame",
+        work.loc[work[Column.AMOUNT] < 0]
+        .groupby("MonthDate", as_index=False)[Column.AMOUNT]
+        .sum()
+        .assign(Amount=lambda d: d[Column.AMOUNT].abs().round(2)),
+    )
+    expenses["Item"] = "Expenses"
+    combined = cast("DataFrame", concat([income, expenses]).sort_values("MonthDate"))
+    fig = line(
+        combined,
+        x="MonthDate",
+        y="Amount",
+        color="Item",
+        title=title,
+        template="plotly_dark",
+        labels={"MonthDate": "Date", "Amount": "Dollars", "Item": "Type"},
+    )
+    fig.update_traces(
+        hovertemplate="Type: %{fullData.name}<br>Date: %{x|%b %Y}<br>Amount: %{y}<extra></extra>",
+    )
+    return _finish_figure(fig, redact_values)
+
+
+def _cumulative_net_graph(
+    df: DataFrame,
+    title: str,
+    redact_values: bool,
+) -> Figure:
+    work = _add_date_columns(df)
+    grouped = cast(
+        "DataFrame",
+        work.groupby("MonthDate", as_index=False)[Column.AMOUNT].sum(),
+    ).sort_values("MonthDate")
+    grouped["Amount"] = grouped[Column.AMOUNT].cumsum().round(2)
+    fig = line(
+        grouped,
+        x="MonthDate",
+        y="Amount",
+        title=title,
+        template="plotly_dark",
+        labels={"MonthDate": "Date", "Amount": "Net Dollars"},
+    )
+    fig.update_traces(hovertemplate="Date: %{x|%b %Y}<br>Cumulative Net: %{y}<extra></extra>")
+    return _finish_figure(fig, redact_values)
+
+
+def _top_vender_bar_graph(
+    df: DataFrame,
+    options: list[str],
+    title: str,
+    redact_values: bool,
+) -> Figure:
+    work = df.loc[(df[Column.AMOUNT] < 0) & df[Column.VENDER].notna()]
+    if options:
+        work = work.loc[work[Column.VENDER].isin(options)]
+    grouped = cast(
+        "DataFrame",
+        work.groupby(Column.VENDER, as_index=False)[Column.AMOUNT]
+        .sum()
+        .assign(Amount=lambda d: d[Column.AMOUNT].abs().round(2)),
+    )
+    top = grouped.sort_values("Amount", ascending=False).head(TOP_VENDER_LIMIT)
+    fig = bar(
+        top,
+        x="Amount",
+        y=Column.VENDER,
+        orientation="h",
+        title=title,
+        template="plotly_dark",
+        labels={"Amount": "Dollars", Column.VENDER: "Vender"},
+    )
+    fig.update_traces(hovertemplate="Vender: %{y}<br>Total: %{x}<extra></extra>")
+    fig = _finish_figure(fig, redact_values=False)
+    if redact_values:
+        fig.update_xaxes(showticklabels=False)
+    return fig
+
+
+def _seasonality_graph(
+    df: DataFrame,
+    title: str,
+    redact_values: bool,
+) -> Figure:
+    work = _add_date_columns(df)
+    work = work.loc[work[Column.AMOUNT] < 0]
+    monthly = cast(
+        "DataFrame",
+        work.groupby("MonthDate", as_index=False)[Column.AMOUNT]
+        .sum()
+        .assign(Amount=lambda d: d[Column.AMOUNT].abs().round(2)),
+    )
+    monthly["MonthOfYear"] = monthly["MonthDate"].dt.month
+    grouped = cast(
+        "DataFrame",
+        monthly.groupby("MonthOfYear", as_index=False)["Amount"].mean(),
+    ).sort_values("MonthOfYear")
+    grouped["Amount"] = grouped["Amount"].round(2)
+    grouped["Month"] = [
+        pd.Period(year=2000, month=int(m), freq="M").strftime("%b") for m in grouped["MonthOfYear"]
+    ]
+    fig = bar(
+        grouped,
+        x="Month",
+        y="Amount",
+        title=title,
+        template="plotly_dark",
+        labels={"Month": "Month", "Amount": "Average Dollars"},
+    )
+    fig.update_traces(hovertemplate="Month: %{x}<br>Average Spend: %{y}<extra></extra>")
+    return _finish_figure(fig, redact_values)
+
+
+def _year_over_year_graph(
+    df: DataFrame,
+    title: str,
+    redact_values: bool,
+) -> Figure:
+    work = _add_date_columns(df)
+    work = work.loc[work[Column.AMOUNT] < 0]
+    years = sorted({int(y) for y in work["Year"].dropna().unique()})
+    work = work.loc[work["Year"].isin(years[-2:])]
+    if not work.empty:
+        work["Year"] = work["Year"].astype(int)
+    monthly = cast(
+        "DataFrame",
+        work.groupby(["Year", "MonthDate"], as_index=False)[Column.AMOUNT]
+        .sum()
+        .assign(Amount=lambda d: d[Column.AMOUNT].abs().round(2)),
+    )
+    monthly["Month"] = monthly["MonthDate"].dt.month
+    grouped = cast(
+        "DataFrame",
+        monthly.groupby(["Month", "Year"], as_index=False)["Amount"].sum(),
+    ).sort_values(["Month", "Year"])
+    grouped["Year"] = grouped["Year"].astype(str)
+    fig = bar(
+        grouped,
+        x="Month",
+        y="Amount",
+        color="Year",
+        title=title,
+        template="plotly_dark",
+        labels={"Month": "Month", "Amount": "Dollars", "Year": "Year"},
+    )
+    fig.update_traces(
+        hovertemplate="Year: %{fullData.name}<br>Month: %{x}<br>Amount: %{y}<extra></extra>",
+    )
+    fig.update_layout(barmode="group")
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=list(range(1, 13)),
+        ticktext=[pd.Period(year=2000, month=m, freq="M").strftime("%b") for m in range(1, 13)],
+    )
+    return _finish_figure(fig, redact_values)
+
+
+def _project_timeline_graph(df: DataFrame, title: str) -> Figure:
+    work = _add_date_columns(df)
+    work = work.loc[(work[Column.AMOUNT] < 0) & work[Column.PROJECT].notna()]
+    grouped = cast(
+        "DataFrame",
+        work.groupby(Column.PROJECT, as_index=False).agg(
+            Start=("MonthDate", "min"),
+            End=("MonthDate", "max"),
+            Amount=(Column.AMOUNT, "sum"),
+        ),
+    ).sort_values("Start")
+    grouped["Amount"] = grouped["Amount"].abs().round(2)
+    fig = go.Figure()
+    for project, start, end, amount in grouped.itertuples(index=False, name=None):
+        # Snap bars to whole months: first day of first active month through
+        # the day after the last day of the last active month.
+        bar_end = end + pd.offsets.MonthEnd(0) + pd.Timedelta(days=1)
+        duration = (end.year - start.year) * 12 + end.month - start.month + 1
+        fig.add_trace(
+            go.Bar(
+                orientation="h",
+                y=[project],
+                x=[bar_end],
+                x0=[start],
+                name=str(project),
+                customdata=[(start, end, amount, duration)],
+                hovertemplate=(
+                    "Project: %{y}<br>Start: %{customdata[0]:%b %Y}<br>"
+                    "End: %{customdata[1]:%b %Y}<br>"
+                    "Duration: %{customdata[3]} mo<br>"
+                    "Total: $%{customdata[2]:,.0f}<extra></extra>"
+                ),
+            )
+        )
+    fig.update_layout(
+        title=title,
+        template="plotly_dark",
+        showlegend=False,
+        xaxis_title="Date",
+        yaxis_title="",
+    )
+    return _finish_figure(fig, redact_values=False)
+
+
+def _transaction_scatter_graph(
+    df: DataFrame,
+    title: str,
+    redact_values: bool,
+) -> Figure:
+    work = _add_date_columns(df)
+    work = work.loc[work[Column.AMOUNT] < 0].dropna(subset=["Date"])
+    work["Amount"] = work[Column.AMOUNT].abs().round(2)
+    fig = scatter(
+        work,
+        x="Date",
+        y="Amount",
+        title=title,
+        template="plotly_dark",
+        labels={"Date": "Date", "Amount": "Amount ($) - Log Scale"},
+    )
+    fig.update_yaxes(type="log")
+    fig.update_traces(
+        customdata=list(
+            zip(work[Column.VENDER].fillna(""), work[Column.CATEGORY].fillna(""), strict=True)
+        ),
+        marker={"size": 5, "opacity": 0.5},
+        hovertemplate=(
+            "Date: %{x|%b %d, %Y}<br>Amount: $%{y:.2f}<br>"
+            "Vender: %{customdata[0]}<br>Category: %{customdata[1]}<extra></extra>"
+        ),
     )
     return _finish_figure(fig, redact_values)
 
