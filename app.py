@@ -19,10 +19,10 @@ PORT = 8050
 BROWSER_OPEN_DELAY_SECONDS = 1.0
 # Dash's auto-generated Graph stub types config as a "Config" symbol that
 # does not exist in plotly, so keep this Any-typed to satisfy pyright.
-# "responsive" reflows charts with the page width, but it is only safe
-# because styles.css pins the .graph container AND Dash 4's inner wrapper
-# div (.graph > div) to a fixed height; drop either rule and plotly
-# collapses the charts to their axis labels.
+# "responsive" reflows charts with the page width, but Dash 4 forces an
+# inline height: 100% on the graph container in that mode, so the chart
+# grids need definite row heights (.grid-container-charts in styles.css);
+# without them plotly collapses the charts to a zero-height plot.
 GRAPH_CONFIG: Any = {"displaylogo": False, "responsive": True}
 
 YEARLY_SECTION_GETTERS = {
@@ -113,7 +113,7 @@ def _create_plot_section(title: str, plots: list[Figure]) -> html.Div:
                     dcc.Graph(figure=figure, className="graph", config=GRAPH_CONFIG)
                     for figure in plots
                 ],
-                className="grid-container",
+                className="grid-container grid-container-charts",
             ),
         ],
         className="section",

@@ -125,6 +125,14 @@ html {
 .grid-container-single {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
+.grid-container-charts {
+  /* Definite row heights are required by the "responsive" graph config:
+     Dash 4 forces an inline height: 100% on the graph container, which
+     only resolves against a definite row size. Without this the charts
+     collapse to a zero-height plot (plotly emits Infinity axis errors).
+     720px = CHART_HEIGHT in data_loader.py (700px) + 20px padding. */
+  grid-auto-rows: 720px;
+}
 
 /* MARK: Sections */
 .section {
@@ -178,19 +186,16 @@ html {
 
 /* MARK: Graph container */
 .graph {
+  box-sizing: border-box;
   display: block;
   padding: var(--space-xs);
 
-  /* Both rules below are required by the "responsive" graph config.
-     Dash 4 wraps plotly's div in an intermediate element whose height
-     plotly measures on resize; if that wrapper is auto-height the charts
-     collapse to their axis labels. .graph gets the fixed height (the
-     chart canvas height, CHART_HEIGHT in data_loader.py, 700px, plus the
-     20px of vertical padding) and the wrapper resolves 100% of it. */
-  height: 720px;
-}
-.graph > div {
-  height: 100%;
+  /* In responsive mode Dash 4 sets an inline height: 100% on this element
+     (and on the plotly div inside it), so the height resolves from the
+     grid row size (.grid-container-charts), not from any rule here. The
+     border-box sizing keeps the padding inside that height. Do not add a
+     ".graph > div" rule: the plotly div has an empty sibling here and a
+     height on the children displaces the chart out of its card. */
 }
 
 /* MARK: Responsive */
