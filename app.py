@@ -19,8 +19,10 @@ PORT = 8050
 BROWSER_OPEN_DELAY_SECONDS = 1.0
 # Dash's auto-generated Graph stub types config as a "Config" symbol that
 # does not exist in plotly, so keep this Any-typed to satisfy pyright.
-# "responsive" is only safe because .graph has a fixed height in styles.css;
-# without it, plotly collapses the charts to their container after first paint.
+# "responsive" reflows charts with the page width, but it is only safe
+# because styles.css pins the .graph container AND Dash 4's inner wrapper
+# div (.graph > div) to a fixed height; drop either rule and plotly
+# collapses the charts to their axis labels.
 GRAPH_CONFIG: Any = {"displaylogo": False, "responsive": True}
 
 YEARLY_SECTION_GETTERS = {

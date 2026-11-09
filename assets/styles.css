@@ -181,11 +181,16 @@ html {
   display: block;
   padding: var(--space-xs);
 
-  /* Fixed height required for the "responsive" graph config: it is the
-     chart canvas height (CHART_HEIGHT in data_loader.py, 700px) plus
-     the 20px of vertical padding. Never remove it or the charts
-     collapse to their axis labels after the first paint. */
+  /* Both rules below are required by the "responsive" graph config.
+     Dash 4 wraps plotly's div in an intermediate element whose height
+     plotly measures on resize; if that wrapper is auto-height the charts
+     collapse to their axis labels. .graph gets the fixed height (the
+     chart canvas height, CHART_HEIGHT in data_loader.py, 700px, plus the
+     20px of vertical padding) and the wrapper resolves 100% of it. */
   height: 720px;
+}
+.graph > div {
+  height: 100%;
 }
 
 /* MARK: Responsive */
