@@ -19,7 +19,9 @@ PORT = 8050
 BROWSER_OPEN_DELAY_SECONDS = 1.0
 # Dash's auto-generated Graph stub types config as a "Config" symbol that
 # does not exist in plotly, so keep this Any-typed to satisfy pyright.
-GRAPH_CONFIG: Any = {"displaylogo": False, "responsive": True}
+# Do not set "responsive": it makes plotly size charts to their container,
+# which has no fixed height and collapses the graphs after first paint.
+GRAPH_CONFIG: Any = {"displaylogo": False}
 
 YEARLY_SECTION_GETTERS = {
     "Yearly Vender Summary": DataLoader.get_vender_pie_charts,
